@@ -1,5 +1,8 @@
 package com.jjvein.quiz;
 
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -18,13 +21,17 @@ public class MainActivity extends AppCompatActivity {
 
     private Button mTrueButton;
     private Button mFalseButton;
+    private Button mCheatButton;
     private Button mNextButton;
     private TextView mQuestionTextView;
+    private int mCurrentIndex = 0;
+    private byte[] mQuizResult;
+    private boolean mIsCheater;
+
     private static final String KEY_INDEX = "index";
     private static final String RESULT_INDEX = "result";
     private static final String LOG_KEY = "quiz";
-    private int mCurrentIndex = 0;
-    private byte[] mQuizResult;
+    private static final int REQUEST_CODE_CHEAT = 0;
 
     private Question[] mQuestionBank = new Question[] {
 
@@ -67,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 mCurrentIndex = (mCurrentIndex + 1) % mQuestionBank.length;
+                mIsCheater = false;
                 updateQuestion();
             }
         });
@@ -86,6 +94,30 @@ public class MainActivity extends AppCompatActivity {
         });
         updateQuestion();
 
+        mCheatButton = (Button) findViewById(R.id.cheat_button);
+        mCheatButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                boolean answerIsTrue = mQuestionBank[mCurrentIndex].isAnswerTrue();
+                Intent intent = CheatActivity.newIntent(MainActivity.this, answerIsTrue);
+                startActivityForResult(intent, REQUEST_CODE_CHEAT);
+            }
+        });
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode != Activity.RESULT_OK) {
+            return;
+        }
+
+        if (requestCode == REQUEST_CODE_CHEAT) {
+            if (data == null) {
+                return;
+            }
+            mIsCheater = CheatActivity.wasAnswerShow(data);
+        }
     }
 
     @Override
@@ -112,12 +144,16 @@ public class MainActivity extends AppCompatActivity {
         view.setEnabled(false);
         boolean answerIsTrue = mQuestionBank[mCurrentIndex].isAnswerTrue();
         int messageResId = 0;
-        if (userPressedTrue == answerIsTrue) {
-            messageResId = R.string.correct_toast;
-            mQuizResult[mCurrentIndex] = 1;
+        if (mIsCheater) {
+            messageResId = R.string.judgment_toast;
         } else {
-            messageResId = R.string.incorrect_toast;
-            mQuizResult[mCurrentIndex] = -1;
+            if (userPressedTrue == answerIsTrue) {
+                messageResId = R.string.correct_toast;
+                mQuizResult[mCurrentIndex] = 1;
+            } else {
+                messageResId = R.string.incorrect_toast;
+                mQuizResult[mCurrentIndex] = -1;
+            }
         }
         Log.d(LOG_KEY, Arrays.toString(mQuizResult));
 
